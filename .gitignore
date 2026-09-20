@@ -1,0 +1,15 @@
+# --- k6 artifacts ---
+k6-summary.json
+summary.json
+test/k6-summary.json
+test/run-output.txt
+test/e2e-output.txt
+test/*.out
+test/*.err
+
+# --- OS / IDE ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/

@@ -11,26 +11,54 @@
  * نکته: بدون هیچ npm dependency؛ فقط Node استاندارد + باینری k6.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { startServer } from './mock-server.mjs';
 
 const PORT = Number(process.env.MOCK_PORT || 8099);
 const K6 = process.platform === 'win32' ? 'k6.exe' : 'k6';
 const FAST_LOAD = ['-u', '2', '-d', '3s'];
 
-/** اجرای k6 و برگرداندن خروجی و کد خروج. */
+/**
+ * ساخت env تمیز برای k6:
+ * - متغیرهای پروکسی سازمانی حذف می‌شوند تا ترافیک loopback گره نخورد.
+ * - BASE_URL روی mock server تنظیم می‌شود.
+ */
+function buildEnv(extraEnv) {
+  const env = Object.assign({}, process.env, { BASE_URL: `http://127.0.0.1:${PORT}` }, extraEnv || {});
+  delete env.HTTP_PROXY;
+  delete env.HTTPS_PROXY;
+  delete env.http_proxy;
+  delete env.https_proxy;
+  env.NO_PROXY = '127.0.0.1,localhost';
+  env.no_proxy = '127.0.0.1,localhost';
+  return env;
+}
+
+/**
+ * اجرای k6 به‌صورت «غیرهمزمان».
+ * نکتهٔ مهم: از spawnSync استفاده نمی‌کنیم چون event loop نود را قفل می‌کند و
+ * mock server (که در همین پروسه اجراست) دیگر نمی‌تواند به درخواست‌ها پاسخ دهد.
+ */
 function runK6(args, extraEnv) {
-  const started = Date.now();
-  const result = spawnSync(K6, args, {
-    encoding: 'utf8',
-    env: Object.assign({}, process.env, { BASE_URL: `http://127.0.0.1:${PORT}` }, extraEnv || {}),
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const child = spawn(K6, args, { env: buildEnv(extraEnv), stdio: ['ignore', 'pipe', 'pipe'] });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('close', (code) => {
+      resolve({ exitCode: code, stdout, stderr, elapsedMs: Date.now() - started });
+    });
+    child.on('error', (error) => {
+      resolve({ exitCode: -1, stdout, stderr: `${error.message}\n${stderr}`, elapsedMs: Date.now() - started });
+    });
   });
-  return {
-    exitCode: result.status,
-    stdout: result.stdout || '',
-    stderr: result.stderr || '',
-    elapsedMs: Date.now() - started,
-  };
 }
 
 const INSPECT_TARGETS = [
@@ -86,17 +114,23 @@ async function main() {
   const results = [];
 
   // ۱) اعتبارسنجی کانفیگ بدون اجرا
-  INSPECT_TARGETS.forEach((target) => {
-    const result = runK6(['inspect', target]);
-    results.push({ name: `inspect :: ${target}`, expect: 0, got: result.exitCode, ok: result.exitCode === 0, elapsedMs: result.elapsedMs });
+  for (const target of INSPECT_TARGETS) {
+    const result = await runK6(['inspect', target]);
+    results.push({
+      name: `inspect :: ${target}`,
+      expect: 0,
+      got: result.exitCode,
+      ok: result.exitCode === 0,
+      elapsedMs: result.elapsedMs,
+    });
     if (result.exitCode !== 0) {
       console.log(`--- inspect output (${target}) ---\n${result.stderr}`);
     }
-  });
+  }
 
   // ۲) اجرای واقعی کیس‌ها
-  CASES.forEach((testCase) => {
-    const result = runK6(testCase.args);
+  for (const testCase of CASES) {
+    const result = await runK6(testCase.args);
     const ok = result.exitCode === testCase.expect;
     results.push({
       name: testCase.name,
@@ -113,7 +147,7 @@ async function main() {
       const early = result.elapsedMs < 7000;
       console.log(`[e2e] abortOnFail elapsed = ${seconds}s (duration=8s) → ${early ? 'stopped early ✓' : 'WARN: did not stop early'}`);
     }
-  });
+  }
 
   // ۳) گزارش
   console.log('\n================ E2E SUMMARY ================');
@@ -123,7 +157,7 @@ async function main() {
   });
 
   const failed = results.filter((entry) => !entry.ok);
-  console.log(`============================================='`);
+  console.log('='.repeat(45));
   console.log(`total=${results.length} passed=${results.length - failed.length} failed=${failed.length}\n`);
 
   server.close();

@@ -32,6 +32,10 @@ import {
 
 const BASE = baseUrl();
 
+// در این مثال، پاسخ 401 «مورد انتظار» است (تست امنیتی بدون توکن)؛ پس نباید
+// http_req_failed را آلوده کند. با expectedStatuses به k6 اعلام می‌کنیم.
+http.setResponseCallback(http.expectedStatuses(200, 401));
+
 export const options = {
   vus: 3,
   duration: '5s',
