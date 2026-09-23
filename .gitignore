@@ -13,3 +13,7 @@ Desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+# --- test-on-fara (ویدئوها، داده‌های تست و گزارش‌ها) ---
+test-on-fara/data/
+test-on-fara/cando-gesture-manner-NoshArray-unsafe.js

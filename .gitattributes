@@ -1,0 +1,10 @@
+# خط‌پایان استاندارد برای اجرای مخزن روی لینوکس (VM تست فشار)
+* text=auto eol=lf
+
+# فایل‌های باینری تست (ویدئو/تصویر) هرگز تبدیل نشوند
+*.mp4 binary
+*.webm binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.PNG binary

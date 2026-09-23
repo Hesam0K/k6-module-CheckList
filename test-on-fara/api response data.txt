@@ -1,0 +1,68 @@
+{
+    "status": 200,
+    "data": {
+        "result": {
+            "verified": true,
+            "head_pose": 96.42493724822998,
+            "predicted_classes": [
+                "left",
+                "right",
+                "frontal"
+            ]
+        },
+        "message": "Success"
+    },
+    "meta": {
+        "request_id": "b4a8f1b8-8463-498b-8e6e-8ea9197f449e",
+        "date": "2026-09-23T12:04:07.035630+03:30"
+    }
+}
+
+{
+    "status": 403,
+    "data": {
+        "result": {
+            "head_pose": 0
+        },
+        "message": "Video is required."
+    },
+    "meta": {
+        "request_id": "f8facd5a-d2c3-4ecb-a625-a0c8fe701516",
+        "date": "2026-09-23T14:23:55.709716+03:30"
+    }
+}
+
+{
+    "status": 402,
+    "data": {
+        "result": {
+            "head_pose": 0,
+            "videoSeparateHandPose": {
+                "gesture0": 0,
+                "gesture1": 0,
+                "gesture2": 0
+            },
+            "videoHandPose": 0
+        },
+        "message": "Type of awareness should exist in input dict"
+    },
+    "meta": {
+        "request_id": "0cafe165-abad-480e-a3cc-0c74b30a3a0c",
+        "date": "2026-09-23T14:25:14.790510+03:30"
+    }
+}
+
+{
+    "status": 407,
+    "data": {
+        "result": {
+            "head_pose": 0
+        },
+        "message": "Pattern0 should exist in input dictionary"
+    },
+    "meta": {
+        "request_id": "77dd5658-0429-4834-bc44-f43ecbf8671b",
+        "date": "2026-09-23T14:25:33.678688+03:30"
+    }
+}
+

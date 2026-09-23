@@ -190,6 +190,31 @@ export function teardown(data) {
  * - در ترمینال، خلاصهٔ تگ‌دار http_req_duration و نتیجهٔ آستانه‌ها چاپ می‌شود.
  * - یک Artifact JSON هم برای مقایسهٔ اجراها ذخیره می‌شود (k6/test-artifacts).
  */
+/**
+ * نرمال‌سازی نتیجهٔ آستانه‌ها در دادهٔ خلاصهٔ k6.
+ * k6 v1.x شکل مپ دارد: { 'p(95)<300': { ok: true } } — نسخه‌های قدیمی آرایه‌ای از {threshold, ok}.
+ * پیش از این، فرض «آرایه بودن» باعث خطای بی‌صدای handleSummary می‌شد.
+ */
+function thresholdRowsOf(metric) {
+  const source = metric ? metric.thresholds : null;
+  if (!source) {
+    return [];
+  }
+  if (Array.isArray(source)) {
+    return source.map((entry) => ({ threshold: entry.threshold, ok: !!entry.ok }));
+  }
+  return Object.keys(source).map((expression) => ({
+    threshold: expression,
+    ok: !!(source[expression] && source[expression].ok),
+  }));
+}
+
+/** قالب‌بندی امن یک آمارهٔ میلی‌ثانیه‌ای (اگر آماره در --summary-trend-stats نباشد). */
+function ms(values, key) {
+  const value = values ? values[key] : undefined;
+  return typeof value === 'number' ? value.toFixed(1) : 'n/a';
+}
+
 export function handleSummary(data) {
   const lines = [];
   const timestamp = new Date().toISOString();
@@ -200,12 +225,8 @@ export function handleSummary(data) {
   lines.push('');
   lines.push('نتیجهٔ آستانه‌ها (Thresholds):');
   Object.keys(data.metrics).forEach((metricName) => {
-    const metric = data.metrics[metricName];
-    if (!metric.thresholds || metric.thresholds.length === 0) {
-      return;
-    }
-    metric.thresholds.forEach((entry) => {
-      lines.push(`  ${entry.ok ? 'PASS' : 'FAIL'}  ${metricName} : ${entry.threshold}`);
+    thresholdRowsOf(data.metrics[metricName]).forEach((row) => {
+      lines.push(`  ${row.ok ? 'PASS' : 'FAIL'}  ${metricName} : ${row.threshold}`);
     });
   });
 
@@ -217,8 +238,8 @@ export function handleSummary(data) {
     }
     const values = data.metrics[metricName].values;
     lines.push(
-      `  ${metricName} → avg=${values.avg.toFixed(1)}ms p(95)=${values['p(95)'].toFixed(1)}ms`
-        + ` p(99)=${values['p(99)'].toFixed(1)}ms max=${values.max.toFixed(1)}ms`
+      `  ${metricName} -> avg=${ms(values, 'avg')}ms p(95)=${ms(values, 'p(95)')}ms`
+        + ` p(99)=${ms(values, 'p(99)')}ms max=${ms(values, 'max')}ms`
     );
   });
 
@@ -238,12 +259,9 @@ export function handleSummary(data) {
         return accumulator;
       }, {}),
     thresholds: Object.keys(data.metrics)
-      .filter((name) => data.metrics[name].thresholds && data.metrics[name].thresholds.length > 0)
+      .filter((name) => thresholdRowsOf(data.metrics[name]).length > 0)
       .reduce((accumulator, name) => {
-        accumulator[name] = data.metrics[name].thresholds.map((entry) => ({
-          threshold: entry.threshold,
-          ok: entry.ok,
-        }));
+        accumulator[name] = thresholdRowsOf(data.metrics[name]);
         return accumulator;
       }, {}),
   };

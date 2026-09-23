@@ -13,6 +13,7 @@
 
 import { spawn } from 'node:child_process';
 import { startServer } from './mock-server.mjs';
+import fs from 'node:fs';
 
 const PORT = Number(process.env.MOCK_PORT || 8099);
 const K6 = process.platform === 'win32' ? 'k6.exe' : 'k6';
@@ -95,6 +96,7 @@ const CASES = [
   {
     name: 'boilerplate base-stress-test (strict profile)',
     args: ['run', '--quiet', '-e', 'K6_DURATION=4s', '-e', 'K6_VUS=3', '-e', 'K6_SLO_PROFILE=strict', 'base-stress-test.js'],
+    artifact: 'k6-summary.json',
     expect: 0,
   },
   { name: 'negative: failing thresholds → 99', args: ['run', '--quiet'].concat(FAST_LOAD, ['test/cases/99-negative-thresholds.js']), expect: 99 },
@@ -130,8 +132,26 @@ async function main() {
 
   // ۲) اجرای واقعی کیس‌ها
   for (const testCase of CASES) {
+    if (testCase.artifact) {
+      try {
+        fs.unlinkSync(testCase.artifact);
+      } catch (error) {
+        // آرتیفکت قدیمی وجود نداشت
+      }
+    }
     const result = await runK6(testCase.args);
-    const ok = result.exitCode === testCase.expect;
+    let ok = result.exitCode === testCase.expect;
+
+    // هاردنینگ: اگر سناریو آرتیفکت handleSummary دارد، بررسی می‌کنیم واقعاً تولید شده باشد.
+    // دلیل: خطای داخل handleSummary کد خروج را صفر نگه می‌دارد و باگ بی‌صدا عبور می‌کند.
+    if (testCase.artifact) {
+      if (!fs.existsSync(testCase.artifact)) {
+        ok = false;
+        console.log(`[e2e] آرتیفکت «${testCase.artifact}» تولید نشد → handleSummary خطا داده است (${testCase.name})`);
+      } else {
+        fs.unlinkSync(testCase.artifact);
+      }
+    }
     results.push({
       name: testCase.name,
       expect: testCase.expect,
