@@ -34,7 +34,7 @@ const VUS = 5;
 // Test Data
 // ============================================================
 
-const basePath = '../../data/random_manner_videos';
+const basePath = './data/random_manner_videos';
 
 const videoNames = [
   'video01.mp4',
